@@ -27,7 +27,7 @@ http://doxygen.io/github.com/<UserName>/<ProjectName>
 - 要提意见建议，请到 [Issues](https://github.com/qiniu/doxygen.io/issues)。
 - 希望贡献源代码，请提 [Pull Request](https://github.com/qiniu/doxygen.io/compare)。
 
-你可以到[这里](https://github.com/qiniu/doxygen.io/releases)查看所有的改进记录。
+你可以到这里查看所有的[改进记录](https://github.com/qiniu/doxygen.io/releases)。
 
 # 贡献者名单
 
