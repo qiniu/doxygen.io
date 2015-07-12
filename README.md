@@ -2,6 +2,7 @@ doxygen.io - Doxygen as Service
 ======
 
 [![Build Status](https://travis-ci.org/qiniu/doxygen.io.svg?branch=master)](https://travis-ci.org/qiniu/doxygen.io)
+[![doxygen.io](http://doxygen.io/github.com/qiniu/doxygen.io/?status.svg)](http://doxygen.io/github.com/qiniu/doxygen.io/)
 
 [![Qiniu Logo](http://assets.qiniu.com/qiniu-white-195x105.png)](http://qiniu.com/)
 
@@ -19,7 +20,8 @@ http://doxygen.io/github.com/<UserName>/<ProjectName>
 
 - doxygen.io 首页。
 - 支持一些定制性功能（要求项目根目录下有 .doxygen.io 这样的配置文件），比如只根据项目的特定目录生成文档。
-- 支持 Project admin tools，比如显示一个类似 [![GoDoc](https://godoc.org/github.com/qiniu/doxygen.io?status.svg)](https://godoc.org/github.com/qiniu/doxygen.io) 的图标。
+- 美化 Project admin tools 页面。
+- 支持更多的 Source hosting 服务，比如 bitbucket.org 之类。
 
 # 参与改进
 
