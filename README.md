@@ -13,13 +13,7 @@ doxygen.io - Doxygen as Service
 http://doxygen.io/github.com/<UserName>/<ProjectName>
 ```
 
-样例：
-
-```
-http://doxygen.io/github.com/qiniu/php-sdk
-```
-
-即可访问七牛云存储的 PHP SDK 文档。
+比如，访问 [http://doxygen.io/github.com/qiniu/php-sdk](http://doxygen.io/github.com/qiniu/php-sdk) 即可访问七牛云存储的 PHP SDK 文档。
 
 # 后续事项
 
