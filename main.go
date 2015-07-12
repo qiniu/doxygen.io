@@ -50,13 +50,13 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	parts := strings.SplitN(path[1:], "/", 4)
-	if parts[0] != "github.com" || len(parts) < 3 {
+	if strings.Index(path, "..") >= 0 {
 		handleUnknown(w, req)
 		return
 	}
 
-	if parts[1] == ".." || parts[2] == ".." {
+	parts := strings.SplitN(path[1:], "/", 4)
+	if parts[0] != "github.com" || len(parts) < 3 {
 		handleUnknown(w, req)
 		return
 	}
@@ -74,12 +74,25 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if len(parts) > 3 {
-		htmlDir += parts[3]
+		file := htmlDir + parts[3]
+		if strings.HasSuffix(file, "/") {
+			file += "index.html"
+		}
+		f, err := os.Open(file)
+		if err != nil {
+			httputil.Error(w, err)
+			return
+		}
+		defer f.Close()
+		fi, err := f.Stat()
+		if err != nil {
+			httputil.Error(w, err)
+			return
+		}
+		serveContent(w, req, pkg, fi.Name(), fi.ModTime(), f)
 	} else {
 		http.Redirect(w, req, path + "/", 301)
-		return
 	}
-	http.ServeFile(w, req, htmlDir)
 }
 
 func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
@@ -87,7 +100,7 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 	srcDir := srcRootDir + pkg
 	repo := "https://github.com/" + parts[1] + "/" + parts[2] + ".git"
 
-	crc := crc32.ChecksumIEEE([]byte(repo))
+	crc := crc32.ChecksumIEEE([]byte(pkg))
 	mutex := &mutexs[crc % mutexCount]
 	mutex.Lock()
 	defer mutex.Unlock()
