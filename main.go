@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 
 	"qiniupkg.com/http/httputil.v2"
 	"qiniupkg.com/x/log.v7"
@@ -21,6 +22,8 @@ const (
 
 var (
 	ErrUnmatchedInodeType = errors.New("unmatched inode type(file or dir)")
+	ErrRefreshWithoutPath = httputil.NewError(400, "refresh without path")
+	ErrInvalidPkgPath     = httputil.NewError(400, "invalid package path")
 )
 
 var (
@@ -29,6 +32,8 @@ var (
 	dataRootDir string
 	srcRootDir  string
 	tmpRootDir  string
+
+	refreshRootDir string
 
 	mutexs [mutexCount]sync.Mutex
 )
@@ -41,6 +46,64 @@ func handleUnknown(w http.ResponseWriter, req *http.Request) {
 
 }
 
+func handleRefresh(w http.ResponseWriter, req *http.Request) {
+
+	pkg := req.PostFormValue("path")
+	if pkg == "" {
+		httputil.Error(w, ErrRefreshWithoutPath)
+		return
+	}
+
+	log.Info("Refresh", pkg)
+
+	err := refresh(pkg)
+	if err != nil {
+		httputil.Error(w, err)
+		return
+	}
+
+	http.Redirect(w, req, "/" + pkg + "/", 301)
+}
+
+func refresh(pkg string) (err error) {
+
+	dataDir := dataRootDir + pkg
+	indexFile := dataDir + "/html/index.html"
+	if isRefreshed(indexFile) {
+		return nil
+	}
+
+	if strings.Index(pkg, "..") >= 0 {
+		return ErrInvalidPkgPath
+	}
+
+	parts := strings.SplitN(pkg, "/", 4)
+	if len(parts) != 3 {
+		return ErrInvalidPkgPath
+	}
+
+	refreshDir := refreshRootDir + pkg
+	refreshHtmlDir := refreshDir + "/html/"
+	os.RemoveAll(refreshDir)
+	err = genDoc(parts, pkg, refreshDir, refreshHtmlDir)
+	if err != nil {
+		return
+	}
+
+	os.RemoveAll(dataDir)
+	return os.Rename(refreshDir, dataDir)
+}
+
+func isRefreshed(indexFile string) bool {
+
+	fi, err := os.Stat(indexFile)
+	if err != nil {
+		return false
+	}
+
+	return time.Now().Sub(fi.ModTime()) < 10*time.Second
+}
+
 func handleMain(w http.ResponseWriter, req *http.Request) {
 
 	path := req.URL.Path
@@ -49,6 +112,8 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		handleHome(w, req)
 		return
 	}
+
+	log.Info("View", path)
 
 	if strings.Index(path, "..") >= 0 {
 		handleUnknown(w, req)
@@ -181,7 +246,7 @@ func isEntryExists(entryPath string, isDir bool) (err error) {
 }
 
 var (
-	bindHost = flag.String("http", ":8888", "address that doxygend server listen")
+	bindHost = flag.String("http", ":8888", "address that doxygen.io server listen")
 )
 
 func main() {
@@ -195,10 +260,12 @@ func main() {
 	}
 
 	dataRootDir = rootDir + "data/"
+	refreshRootDir = rootDir + "refresh/"
 	srcRootDir = rootDir + "src/"
 	tmpRootDir = rootDir + "tmp/"
 	os.MkdirAll(tmpRootDir, 0755)
 
+	http.HandleFunc("/-/refresh", handleRefresh)
 	http.HandleFunc("/", handleMain)
 	err := http.ListenAndServe(*bindHost, nil)
 	if err != nil {
