@@ -187,7 +187,7 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 			ProjectName:  parts[2],
 			OutputDir:    dataDir,
 			InputDir:     srcDir,
-			FilePatterns: "*.md *.java *.h *.hpp *.hxx *.py *.php *.rb *.cs *.js *.scala *.go *.lua *.asp",
+			FilePatterns: "*.md *.dox *.java *.h *.hpp *.hxx *.py *.php *.rb *.cs *.js *.scala *.go *.lua *.asp",
 		})
 		if err != nil {
 			return
