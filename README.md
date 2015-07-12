@@ -19,7 +19,6 @@ http://doxygen.io/github.com/<UserName>/<ProjectName>
 
 - doxygen.io 首页。
 - 支持一些定制性功能（要求项目根目录下有 .doxygen.io 这样的配置文件），比如只根据项目的特定目录生成文档。
-- 支持 Refresh now 功能，方便在一个项目有代码更新时更新文档。
 - 支持 Project admin tools，比如显示一个类似 [![GoDoc](https://godoc.org/github.com/qiniu/doxygen.io?status.svg)](https://godoc.org/github.com/qiniu/doxygen.io) 的图标。
 
 # 参与改进
