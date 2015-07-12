@@ -22,3 +22,12 @@ http://doxygen.io/github.com/<UserName>/<ProjectName>
 - 支持 Refresh now 功能，方便在一个项目有代码更新时更新文档。
 - 支持 Project admin tools，比如显示一个类似 [![GoDoc](https://godoc.org/github.com/qiniu/doxygen.io?status.svg)](https://godoc.org/github.com/qiniu/doxygen.io) 的图标。
 
+# 如何参与改进？
+
+- 要提意见建议，请到 [Issues](https://github.com/qiniu/doxygen.io/issues)。
+- 希望贡献源代码，请提 [Pull Request](https://github.com/qiniu/doxygen.io/compare)。
+
+# 贡献者名单
+
+- 你可以到这里查看[贡献者列表](https://github.com/qiniu/doxygen.io/graphs/contributors)。
+
