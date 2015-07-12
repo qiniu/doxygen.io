@@ -67,12 +67,6 @@ func handleRefresh(w http.ResponseWriter, req *http.Request) {
 
 func refresh(pkg string) (err error) {
 
-	dataDir := dataRootDir + pkg
-	indexFile := dataDir + "/html/index.html"
-	if isRefreshed(indexFile) {
-		return nil
-	}
-
 	if strings.Index(pkg, "..") >= 0 {
 		return ErrInvalidPkgPath
 	}
@@ -80,6 +74,12 @@ func refresh(pkg string) (err error) {
 	parts := strings.SplitN(pkg, "/", 4)
 	if len(parts) != 3 {
 		return ErrInvalidPkgPath
+	}
+
+	dataDir := dataRootDir + pkg
+	indexFile := dataDir + "/html/index.html"
+	if isRefreshed(indexFile) {
+		return nil
 	}
 
 	refreshDir := refreshRootDir + pkg
@@ -113,7 +113,7 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.Info("View", path)
+	log.Info("View", path, req.URL.RawQuery)
 
 	if strings.Index(path, "..") >= 0 {
 		handleUnknown(w, req)
@@ -126,7 +126,20 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	req.ParseForm()
+	if _, ok := req.Form["status.svg"]; ok {
+		handleBadge(w, req)
+		return
+	}
+
 	pkg := strings.Join(parts[:3], "/")
+
+	if _, ok := req.Form["tools"]; ok {
+		log.Info("handleTools")
+		handleTools(w, req, pkg)
+		return
+	}
+
 	dataDir := dataRootDir + pkg
 	htmlDir := dataDir + "/html/"
 	err := isEntryExists(htmlDir, true)
