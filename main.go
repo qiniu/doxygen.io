@@ -42,6 +42,7 @@ var (
 
 func handleHome(w http.ResponseWriter, req *http.Request) {
 
+	http.Redirect(w, req, "/github.com/qiniu/doxygen.io/", 301)
 }
 
 func handleUnknown(w http.ResponseWriter, req *http.Request) {
