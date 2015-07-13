@@ -243,11 +243,14 @@ func checkoutBranch(srcDir string, branch string) (err error) {
 	branchMutex.Lock()
 	defer branchMutex.Unlock()
 
+	workDir, _ := os.Getwd()
 	err = os.Chdir(srcDir)
 	if err != nil {
 		return
 	}
-	return runCmd("git", "checkout", branch)
+	err = runCmd("git", "checkout", branch)
+	os.Chdir(workDir)
+	return
 }
 
 var (
