@@ -232,7 +232,8 @@ func cloneRepo(srcDir string, repo string) (err error) {
 		if err != nil {
 			return
 		}
-		err = runCmd("git", "clone", "--mirror", repo, srcDir)
+		err = runCmd("git", "clone", repo, srcDir)
+		log.Info("cloneRepo", repo, srcDir, "-", err)
 		if err != nil {
 			return
 		}
@@ -266,6 +267,7 @@ func checkoutBranch(srcDir string, branch string) (err error) {
 		return
 	}
 	err = runCmd("git", "checkout", branch)
+	log.Info("checkoutBranch", srcDir, branch, "-", err)
 	os.Chdir(workDir)
 	return
 }
