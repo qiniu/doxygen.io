@@ -21,9 +21,10 @@ const (
 )
 
 var (
-	ErrUnmatchedInodeType = errors.New("unmatched inode type(file or dir)")
-	ErrRefreshWithoutPath = httputil.NewError(400, "refresh without path")
-	ErrInvalidPkgPath     = httputil.NewError(400, "invalid package path")
+	ErrUnmatchedInodeType    = errors.New("unmatched inode type(file or dir)")
+	ErrRefreshWithoutPath    = httputil.NewError(400, "refresh without path")
+	ErrInvalidPkgPath        = httputil.NewError(400, "invalid package path")
+	ErrInvalidGithubMarkdown = httputil.NewError(400, "invalid github markdown")
 )
 
 var (
@@ -35,7 +36,8 @@ var (
 
 	refreshRootDir string
 
-	mutexs [mutexCount]sync.Mutex
+	genDocMutexs  [mutexCount]sync.Mutex
+	htmlDocMutexs [mutexCount]sync.RWMutex
 )
 
 func handleHome(w http.ResponseWriter, req *http.Request) {
@@ -45,6 +47,8 @@ func handleHome(w http.ResponseWriter, req *http.Request) {
 func handleUnknown(w http.ResponseWriter, req *http.Request) {
 
 }
+
+// ---------------------------------------------------
 
 func handleRefresh(w http.ResponseWriter, req *http.Request) {
 
@@ -85,13 +89,27 @@ func refresh(pkg string) (err error) {
 	refreshDir := refreshRootDir + pkg
 	refreshHtmlDir := refreshDir + "/html/"
 	os.RemoveAll(refreshDir)
-	err = genDoc(parts, pkg, refreshDir, refreshHtmlDir)
-	if err != nil {
-		return
-	}
+	return genDoc(parts, pkg, refreshDir, refreshHtmlDir, func() error {
 
-	os.RemoveAll(dataDir)
-	return os.Rename(refreshDir, dataDir)
+		mutex := htmlDocMutexOf(pkg)
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		os.RemoveAll(dataDir)
+		return os.Rename(refreshDir, dataDir)
+	})
+}
+
+func htmlDocMutexOf(pkg string) *sync.RWMutex {
+
+	crc := crc32.ChecksumIEEE([]byte(pkg))
+	return &htmlDocMutexs[crc % mutexCount]
+}
+
+func genDocMutexOf(pkg string) *sync.Mutex {
+
+	crc := crc32.ChecksumIEEE([]byte(pkg))
+	return &genDocMutexs[crc % mutexCount]
 }
 
 func isRefreshed(indexFile string) bool {
@@ -104,6 +122,8 @@ func isRefreshed(indexFile string) bool {
 	return time.Now().Sub(fi.ModTime()) < 10*time.Second
 }
 
+// ---------------------------------------------------
+
 func handleMain(w http.ResponseWriter, req *http.Request) {
 
 	path := req.URL.Path
@@ -112,8 +132,6 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		handleHome(w, req)
 		return
 	}
-
-	log.Info("View", path, req.URL.RawQuery)
 
 	if strings.Index(path, "..") >= 0 {
 		handleUnknown(w, req)
@@ -142,14 +160,18 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 
 	dataDir := dataRootDir + pkg
 	htmlDir := dataDir + "/html/"
-	err := isEntryExists(htmlDir, true)
+	err := isHtmlDirExists(pkg, htmlDir)
 	if err != nil {
-		err = genDoc(parts, pkg, dataDir, htmlDir)
+		err = genDoc(parts, pkg, dataDir, htmlDir, nilAction)
 		if err != nil {
 			httputil.Error(w, err)
 			return
 		}
 	}
+
+	mutex := htmlDocMutexOf(pkg)
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	if len(parts) > 3 {
 		file := htmlDir + parts[3]
@@ -173,17 +195,21 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
+func nilAction() error {
+
+	return nil
+}
+
+func genDoc(parts []string, pkg, dataDir, htmlDir string, onAfter func() error) (err error) {
 
 	srcDir := srcRootDir + pkg
 	repo := "https://github.com/" + parts[1] + "/" + parts[2] + ".git"
 
-	crc := crc32.ChecksumIEEE([]byte(pkg))
-	mutex := &mutexs[crc % mutexCount]
+	mutex := genDocMutexOf(pkg)
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	err2 := isEntryExists(htmlDir, true)
+	err2 := isHtmlDirExists(pkg, htmlDir)
 	if err2 != nil {
 		err = cloneRepo(srcDir, repo)
 		if err != nil {
@@ -210,20 +236,80 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 		if err != nil {
 			return
 		}
+
+		makeMainPage(htmlDir + "index.html", pkg)
 	}
-	return
+
+	return onAfter()
 }
+
+func isHtmlDirExists(pkg, entryPath string) (err error) {
+
+	mutex := htmlDocMutexOf(pkg)
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	return isEntryExists(entryPath, true)
+}
+
+// ---------------------------------------------------
 
 func cloneRepo(srcDir string, repo string) (err error) {
 
-	os.RemoveAll(srcDir)
-	err = os.MkdirAll(srcDir, 0755)
+	err = pullRepo(srcDir)
+	log.Info("pullRepo", srcDir, "-", err)
+
+	if err != nil {
+		os.RemoveAll(srcDir)
+		err = os.MkdirAll(srcDir, 0755)
+		if err != nil {
+			return
+		}
+		err = runCmd("git", "clone", repo, srcDir)
+		log.Info("cloneRepo", repo, srcDir, "-", err)
+		if err != nil {
+			return
+		}
+	}
+	return checkoutBranch(srcDir, "master")
+}
+
+func pullRepo(srcDir string) (err error) {
+
+	gitMutex.Lock()
+	defer gitMutex.Unlock()
+
+	workDir, _ := os.Getwd()
+	err = os.Chdir(srcDir)
 	if err != nil {
 		return
 	}
-
-	return runCmd("git", "clone", "--depth=50", repo, srcDir)
+	err = runCmd("git", "pull")
+	os.Chdir(workDir)
+	return
 }
+
+func checkoutBranch(srcDir string, branch string) (err error) {
+
+	gitMutex.Lock()
+	defer gitMutex.Unlock()
+
+	workDir, _ := os.Getwd()
+	err = os.Chdir(srcDir)
+	if err != nil {
+		return
+	}
+	err = runCmd("git", "checkout", branch)
+	log.Info("checkoutBranch", srcDir, branch, "-", err)
+	os.Chdir(workDir)
+	return
+}
+
+var (
+	gitMutex sync.Mutex
+)
+
+// ---------------------------------------------------
 
 func runCmd(command string, args ...string) (err error) {
 
@@ -244,6 +330,8 @@ func runCmd(command string, args ...string) (err error) {
 	return err
 }
 
+// ---------------------------------------------------
+
 func isEntryExists(entryPath string, isDir bool) (err error) {
 
 	fi, err := os.Stat(entryPath)
@@ -257,6 +345,8 @@ func isEntryExists(entryPath string, isDir bool) (err error) {
 	}
 	return nil
 }
+
+// ---------------------------------------------------
 
 var (
 	bindHost = flag.String("http", ":8888", "address that doxygen.io server listen")
@@ -285,4 +375,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+// ---------------------------------------------------
 
