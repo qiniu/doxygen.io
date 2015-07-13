@@ -232,7 +232,7 @@ func cloneRepo(srcDir string, repo string) (err error) {
 		if err != nil {
 			return
 		}
-		err = runCmd("git", "clone", repo, srcDir)
+		err = runCmd("git", "clone", "--mirror", repo, srcDir)
 		if err != nil {
 			return
 		}
