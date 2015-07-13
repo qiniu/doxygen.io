@@ -118,8 +118,6 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	log.Info("View", path, req.URL.RawQuery)
-
 	if strings.Index(path, "..") >= 0 {
 		handleUnknown(w, req)
 		return
@@ -225,23 +223,42 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 
 func cloneRepo(srcDir string, repo string) (err error) {
 
-	os.RemoveAll(srcDir)
-	err = os.MkdirAll(srcDir, 0755)
-	if err != nil {
-		return
-	}
+	err = pullRepo(srcDir)
+	log.Info("pullRepo", srcDir, "-", err)
 
-	err = runCmd("git", "clone", "--depth=50", repo, srcDir)
 	if err != nil {
-		return
+		os.RemoveAll(srcDir)
+		err = os.MkdirAll(srcDir, 0755)
+		if err != nil {
+			return
+		}
+		err = runCmd("git", "clone", repo, srcDir)
+		if err != nil {
+			return
+		}
 	}
 	return checkoutBranch(srcDir, "master")
 }
 
+func pullRepo(srcDir string) (err error) {
+
+	gitMutex.Lock()
+	defer gitMutex.Unlock()
+
+	workDir, _ := os.Getwd()
+	err = os.Chdir(srcDir)
+	if err != nil {
+		return
+	}
+	err = runCmd("git", "pull")
+	os.Chdir(workDir)
+	return
+}
+
 func checkoutBranch(srcDir string, branch string) (err error) {
 
-	branchMutex.Lock()
-	defer branchMutex.Unlock()
+	gitMutex.Lock()
+	defer gitMutex.Unlock()
 
 	workDir, _ := os.Getwd()
 	err = os.Chdir(srcDir)
@@ -254,7 +271,7 @@ func checkoutBranch(srcDir string, branch string) (err error) {
 }
 
 var (
-	branchMutex sync.Mutex
+	gitMutex sync.Mutex
 )
 
 // ---------------------------------------------------
