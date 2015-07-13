@@ -21,9 +21,10 @@ const (
 )
 
 var (
-	ErrUnmatchedInodeType = errors.New("unmatched inode type(file or dir)")
-	ErrRefreshWithoutPath = httputil.NewError(400, "refresh without path")
-	ErrInvalidPkgPath     = httputil.NewError(400, "invalid package path")
+	ErrUnmatchedInodeType    = errors.New("unmatched inode type(file or dir)")
+	ErrRefreshWithoutPath    = httputil.NewError(400, "refresh without path")
+	ErrInvalidPkgPath        = httputil.NewError(400, "invalid package path")
+	ErrInvalidGithubMarkdown = httputil.NewError(400, "invalid github markdown")
 )
 
 var (
@@ -45,6 +46,8 @@ func handleHome(w http.ResponseWriter, req *http.Request) {
 func handleUnknown(w http.ResponseWriter, req *http.Request) {
 
 }
+
+// ---------------------------------------------------
 
 func handleRefresh(w http.ResponseWriter, req *http.Request) {
 
@@ -103,6 +106,8 @@ func isRefreshed(indexFile string) bool {
 
 	return time.Now().Sub(fi.ModTime()) < 10*time.Second
 }
+
+// ---------------------------------------------------
 
 func handleMain(w http.ResponseWriter, req *http.Request) {
 
@@ -210,9 +215,13 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 		if err != nil {
 			return
 		}
+
+		makeMainPage(htmlDir + "index.html", pkg)
 	}
 	return
 }
+
+// ---------------------------------------------------
 
 func cloneRepo(srcDir string, repo string) (err error) {
 
@@ -222,8 +231,30 @@ func cloneRepo(srcDir string, repo string) (err error) {
 		return
 	}
 
-	return runCmd("git", "clone", "--depth=50", repo, srcDir)
+	err = runCmd("git", "clone", "--depth=50", repo, srcDir)
+	if err != nil {
+		return
+	}
+	return checkoutBranch(srcDir, "master")
 }
+
+func checkoutBranch(srcDir string, branch string) (err error) {
+
+	branchMutex.Lock()
+	defer branchMutex.Unlock()
+
+	err = os.Chdir(srcDir)
+	if err != nil {
+		return
+	}
+	return runCmd("git", "checkout", branch)
+}
+
+var (
+	branchMutex sync.Mutex
+)
+
+// ---------------------------------------------------
 
 func runCmd(command string, args ...string) (err error) {
 
@@ -244,6 +275,8 @@ func runCmd(command string, args ...string) (err error) {
 	return err
 }
 
+// ---------------------------------------------------
+
 func isEntryExists(entryPath string, isDir bool) (err error) {
 
 	fi, err := os.Stat(entryPath)
@@ -257,6 +290,8 @@ func isEntryExists(entryPath string, isDir bool) (err error) {
 	}
 	return nil
 }
+
+// ---------------------------------------------------
 
 var (
 	bindHost = flag.String("http", ":8888", "address that doxygen.io server listen")
@@ -285,4 +320,6 @@ func main() {
 		log.Fatal(err)
 	}
 }
+
+// ---------------------------------------------------
 
