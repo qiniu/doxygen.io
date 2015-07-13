@@ -36,7 +36,8 @@ var (
 
 	refreshRootDir string
 
-	mutexs [mutexCount]sync.Mutex
+	genDocMutexs  [mutexCount]sync.Mutex
+	htmlDocMutexs [mutexCount]sync.RWMutex
 )
 
 func handleHome(w http.ResponseWriter, req *http.Request) {
@@ -88,13 +89,27 @@ func refresh(pkg string) (err error) {
 	refreshDir := refreshRootDir + pkg
 	refreshHtmlDir := refreshDir + "/html/"
 	os.RemoveAll(refreshDir)
-	err = genDoc(parts, pkg, refreshDir, refreshHtmlDir)
-	if err != nil {
-		return
-	}
+	return genDoc(parts, pkg, refreshDir, refreshHtmlDir, func() error {
 
-	os.RemoveAll(dataDir)
-	return os.Rename(refreshDir, dataDir)
+		mutex := htmlDocMutexOf(pkg)
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		os.RemoveAll(dataDir)
+		return os.Rename(refreshDir, dataDir)
+	})
+}
+
+func htmlDocMutexOf(pkg string) *sync.RWMutex {
+
+	crc := crc32.ChecksumIEEE([]byte(pkg))
+	return &htmlDocMutexs[crc % mutexCount]
+}
+
+func genDocMutexOf(pkg string) *sync.Mutex {
+
+	crc := crc32.ChecksumIEEE([]byte(pkg))
+	return &genDocMutexs[crc % mutexCount]
 }
 
 func isRefreshed(indexFile string) bool {
@@ -145,14 +160,18 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 
 	dataDir := dataRootDir + pkg
 	htmlDir := dataDir + "/html/"
-	err := isEntryExists(htmlDir, true)
+	err := isHtmlDirExists(pkg, htmlDir)
 	if err != nil {
-		err = genDoc(parts, pkg, dataDir, htmlDir)
+		err = genDoc(parts, pkg, dataDir, htmlDir, nilAction)
 		if err != nil {
 			httputil.Error(w, err)
 			return
 		}
 	}
+
+	mutex := htmlDocMutexOf(pkg)
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	if len(parts) > 3 {
 		file := htmlDir + parts[3]
@@ -176,17 +195,21 @@ func handleMain(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
+func nilAction() error {
+
+	return nil
+}
+
+func genDoc(parts []string, pkg, dataDir, htmlDir string, onAfter func() error) (err error) {
 
 	srcDir := srcRootDir + pkg
 	repo := "https://github.com/" + parts[1] + "/" + parts[2] + ".git"
 
-	crc := crc32.ChecksumIEEE([]byte(pkg))
-	mutex := &mutexs[crc % mutexCount]
+	mutex := genDocMutexOf(pkg)
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	err2 := isEntryExists(htmlDir, true)
+	err2 := isHtmlDirExists(pkg, htmlDir)
 	if err2 != nil {
 		err = cloneRepo(srcDir, repo)
 		if err != nil {
@@ -216,7 +239,17 @@ func genDoc(parts []string, pkg, dataDir, htmlDir string) (err error) {
 
 		makeMainPage(htmlDir + "index.html", pkg)
 	}
-	return
+
+	return onAfter()
+}
+
+func isHtmlDirExists(pkg, entryPath string) (err error) {
+
+	mutex := htmlDocMutexOf(pkg)
+	mutex.RLock()
+	defer mutex.RUnlock()
+
+	return isEntryExists(entryPath, true)
 }
 
 // ---------------------------------------------------
