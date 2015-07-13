@@ -20,9 +20,9 @@ http://doxygen.io/github.com/<UserName>/<ProjectName>
 
 - doxygen.io 首页。
 - 支持一些定制性功能（要求项目根目录下有 .doxygen.io 这样的配置文件或文件夹），比如只根据项目的特定目录生成文档。
+- 支持 $repo/.doxygen.io/README.dox, $repo/.doxygen.io/README.md 来作为 MainPage。
 - 美化 Project admin tools 页面。
 - 支持更多的 Source hosting 服务，比如 bitbucket.org 之类。
-- 优化 Refresh now 的性能，不必每次都 git clone，可以用 git pull。
 - 考虑支持多个分支维护独立的文档。`http://doxygen.io/github.com/<UserName>/<ProjectName>/` 表示 master 分支的 MainPage。其他分支用 `http://doxygen.io/github.com/<UserName>/<ProjectName>/<BranchName>/` 表示 MainPage。
 
 # 参与改进
