@@ -4,7 +4,7 @@ doxygen.io - Doxygen as Service
 [![Build Status](https://travis-ci.org/qiniu/doxygen.io.svg?branch=master)](https://travis-ci.org/qiniu/doxygen.io)
 [![doxygen.io](http://doxygen.io/github.com/qiniu/doxygen.io/?status.svg)](http://doxygen.io/github.com/qiniu/doxygen.io/)
 
-[![Qiniu Logo](http://assets.qiniu.com/qiniu-white-195x105.png)](http://qiniu.com/)
+[![Qiniu Logo](http://open.qiniudn.com/logo.png)](http://qiniu.com/)
 
 # 使用方法
 
